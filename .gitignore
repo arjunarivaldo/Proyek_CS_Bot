@@ -1,0 +1,14 @@
+# Folder "Koper" Virtual Environment
+# (Sangat penting! Jangan pernah unggah ini)
+venv_bot/
+
+# Folder "Arsip" Database Vektor
+# (Sangat penting! Data biner, jangan diunggah)
+chroma_db/
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# File Environment (jika nanti Anda pakai)
+.env
