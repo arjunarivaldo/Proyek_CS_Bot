@@ -1,0 +1,9 @@
+# .dockerignore
+venv_bot/
+__pycache__/
+.git/
+.gitignore
+*.pyc
+data_klien_1/
+# Kita akan menyertakan chroma_db (Arsip) agar bot siap pakai
+# Tapi jika chroma_db Anda bergiga-giga, nanti kita pakai cara 'mounting'
