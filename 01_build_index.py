@@ -24,7 +24,8 @@ storage_context = StorageContext.from_defaults(vector_store=vector_store)
 # --- 2. TENTUKAN "ILMU" & "MESIN" (CARA BARU) ---
 print("Memuat dan Mengatur 'Ilmu' (Embedding Model) secara Global...")
 Settings.embed_model = HuggingFaceEmbedding(
-    model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    # model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 )
 Settings.llm = None
 Settings.chunk_size = 512 
