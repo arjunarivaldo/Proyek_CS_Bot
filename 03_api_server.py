@@ -67,7 +67,7 @@ def load_index() -> VectorStoreIndex:
     #     model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     # )
     Settings.embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     Settings.llm = None
     print("[SERVER STARTUP] Menghubungkan ke 'Lemari Arsip' (ChromaDB)...")
