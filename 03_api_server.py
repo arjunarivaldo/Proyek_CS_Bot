@@ -14,7 +14,7 @@ from llama_index.core import VectorStoreIndex, Settings, PromptTemplate
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from llama_index.core.chat_engine import ChatMode
+
 
 # --- 1. MODEL DATA ---
 class QueryRequest(BaseModel):
