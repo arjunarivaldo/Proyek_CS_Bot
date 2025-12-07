@@ -1,20 +1,28 @@
 # FILE: 02_test_query.py
-# TUGAS: HANYA BERTANYA KE DATABASE. (VERSI INTERAKTIF)
+# TUGAS: HANYA BERTANYA KE DATABASE. (VERSI INTERAKTIF - OPENAI)
 
 import chromadb
+import os # <-- Tambahan untuk cek key
 from llama_index.core import VectorStoreIndex, Settings
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+# PERBAIKAN DI SINI: Import dari module 'openai', bukan 'huggingface'
+from llama_index.embeddings.openai import OpenAIEmbedding
 import time
 
-print("--- Memulai Ujicoba 'Dapur' (Mode Cepat) ---")
+print("--- Memulai Ujicoba 'Dapur' (Mode Cepat - OpenAI) ---")
+
+# --- CEK API KEY (PENTING) ---
+if not os.environ.get("OPENAI_API_KEY"):
+    print("[ERROR] OPENAI_API_KEY tidak ditemukan di environment variable!")
+    print("Pastikan Anda sudah melakukan set key di terminal sebelum menjalankan script ini.")
+    exit()
 
 start_time = time.time()
 
 # --- 1. TENTUKAN "ILMU" (HARUS SAMA DENGAN SAAT BUILD) ---
-print("Memuat 'Ilmu' (Embedding Model)... Ini mungkin butuh beberapa detik...")
-Settings.embed_model = HuggingFaceEmbedding(
-    model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+print("Memuat 'Ilmu' (Embedding Model OpenAI)...")
+Settings.embed_model = OpenAIEmbedding(
+    model="text-embedding-3-small" # PERBAIKAN: gunakan parameter 'model', bukan 'model_name'
 )
 Settings.llm = None
 
@@ -23,10 +31,10 @@ print("Menghubungkan ke 'Lemari Arsip' (ChromaDB)...")
 db = chromadb.PersistentClient(path="./chroma_db")
 try:
     chroma_collection = db.get_collection("klien_dokter_qna")
-except chromadb.errors.CollectionNotFoundError:
+except Exception as e:
     print("="*50)
     print("ERROR: Collection 'klien_dokter_qna' tidak ditemukan.")
-    print("Pastikan Anda sudah menjalankan '01_build_index.py' setidaknya satu kali.")
+    print("Pastikan Anda sudah menjalankan '01_build_index.py' (Versi OpenAI) setidaknya satu kali.")
     print("="*50)
     exit()
     

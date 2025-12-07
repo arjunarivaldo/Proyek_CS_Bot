@@ -17,3 +17,6 @@ __pycache__/
 *.csv
 *.json
 data_klien_1/
+
+# Secret Key Files
+Secret-key OpenAI API.txt

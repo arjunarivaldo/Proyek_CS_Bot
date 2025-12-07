@@ -1,138 +1,115 @@
-# FILE: 03_api_server.py (VERSI 3 - FINAL DENGAN KEAMANAN)
-# TUGAS: Menjalankan "Loket Pelayanan" (API) 24/7 dengan Penjaga Keamanan.
+# FILE: 03_api_server.py (VERSI OPENAI - LEVEL 3 CHAT)
+# TUGAS: API Server Chatbot Cerdas & Ringan
 
 import chromadb
-import time
 import os
-from fastapi import FastAPI, Depends, HTTPException, Security # <-- IMPORT TAMBAHAN
-from fastapi.security import APIKeyHeader # <-- IMPORT TAMBAHAN
+import time
+from fastapi import FastAPI, HTTPException, Security, Depends
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List, Optional
-from starlette.status import HTTP_401_UNAUTHORIZED # <-- IMPORT TAMBAHAN
 
-from llama_index.core import VectorStoreIndex, Settings
+# Import OpenAI Modules
+from llama_index.core import VectorStoreIndex, Settings, PromptTemplate
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
+from llama_index.core.chat_engine import ChatMode
 
-# --- 1. Model Data (Struktur JSON untuk API) ---
-# Ini tidak berubah
+# --- 1. MODEL DATA ---
 class QueryRequest(BaseModel):
     pertanyaan: str
-    top_k: Optional[int] = 3
+    # Kita tidak butuh top_k di request chat biasa, tapi boleh disisakan
 
-class NodeResponse(BaseModel):
-    skor: float
-    konten: str
+class ChatResponse(BaseModel):
+    jawaban: str
+    # Kita kembalikan string jawaban langsung, bukan node raw
 
-class QueryResponse(BaseModel):
-    hasil: List[NodeResponse]
-
-# --- 2. Konfigurasi Keamanan (VERSI AMAN - Environment Variable) ---
-
+# --- 2. KEAMANAN (API KEY UNTUK KLIEN) ---
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
-
-# Ambil 'Daftar Tamu' dari "luar".
-# Kita akan menyimpan daftar kunci sebagai SATU string, dipisah koma.
-# Contoh: "kunci_A,kunci_B,kunci_C"
 VALID_API_KEYS_STRING = os.environ.get("MY_VALID_API_KEYS")
-
-# Ubah string menjadi 'set' (daftar) yang bisa diperiksa
 if VALID_API_KEYS_STRING:
     VALID_API_KEYS = set(VALID_API_KEYS_STRING.split(","))
 else:
-    print("PERINGATAN: Variabel 'MY_VALID_API_KEYS' tidak diatur!")
-    VALID_API_KEYS = set() # Kosongkan jika tidak diatur
+    VALID_API_KEYS = set()
 
 async def get_api_key(api_key: str = Security(API_KEY_HEADER)):
-    """
-    Ini adalah "Penjaga Keamanan" Anda.
-    Dia akan mengecek 'header' X-API-Key yang masuk.
-    """
     if api_key in VALID_API_KEYS:
-        return api_key  # Kunci valid, silakan masuk
-    else:
-        # Kunci salah atau tidak ada, usir!
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="API Key tidak valid atau tidak ditemukan"
-        )
+        return api_key
+    raise HTTPException(status_code=401, detail="API Key Klien tidak valid")
 
-# --- 3. Fungsi Setup (Load INDEKS 1x Saat Startup) ---
-# Fungsi ini tidak berubah dari Versi 2
-def load_index() -> VectorStoreIndex:
+# --- 3. FUNGSI SETUP (LOAD OTAK CLOUD) ---
+def load_chat_engine():
     print("--- [SERVER STARTUP] ---")
-    start_time = time.time()
-    print("[SERVER STARTUP] Memuat 'Ilmu' (Embedding Model)...")
-    # Settings.embed_model = HuggingFaceEmbedding(
-    #     model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    # )
-    Settings.embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
-    Settings.llm = None
-    print("[SERVER STARTUP] Menghubungkan ke 'Lemari Arsip' (ChromaDB)...")
+    
+    # Cek Kunci OpenAI (Kunci 'Dapur')
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("[CRITICAL] OPENAI_API_KEY belum diset! Server tidak bisa jalan.")
+        # Di production, kita biarkan error biar ketahuan
+    
+    # 1. SETUP MODEL (Sangat Ringan di RAM)
+    print("[STARTUP] Menghubungkan ke OpenAI API...")
+    
+    # Otak Kiri (Pustakawan)
+    Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+    
+    # Otak Kanan (Juru Bicara - GPT-5-nano)
+    # temperature=0.2 biar tidak terlalu kreatif/halu
+    Settings.llm = OpenAI(model="gpt-5-nano", temperature=0.2) 
+
+    # 2. LOAD DATABASE
+    print("[STARTUP] Membuka 'Lemari Arsip' ChromaDB...")
     db = chromadb.PersistentClient(path="./chroma_db")
     try:
         chroma_collection = db.get_collection("klien_dokter_qna")
+        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+        index = VectorStoreIndex.from_vector_store(vector_store)
     except Exception as e:
-        print(f"[SERVER STARTUP] GAGAL: {e}")
+        print(f"[ERROR] Gagal load DB: {e}")
         raise e
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    print("[SERVER STARTUP] Memuat Indeks dari storage...")
-    index_dari_storage = VectorStoreIndex.from_vector_store(vector_store)
-    end_time = time.time()
-    print(f"--- [SERVER STARTUP] Setup selesai dalam {end_time - start_time:.2f} detik. ---")
-    return index_dari_storage
 
-# --- 4. Inisialisasi API & "Indeks" ---
-print("[SERVER STARTUP] Menginisialisasi FastAPI...")
-app = FastAPI(
-    title="API Bot CS (Dokter Q&A)",
-    description="Endpoint untuk MVP Level 1 Bot CS (RAG Murni).",
-    version="1.0.0"
-)
-global_index = load_index()
-print("=" * 50)
-print("API SIAP MENERIMA REQUEST di http://127.0.0.1:8000")
-print("=" * 50)
-
-# --- 5. API Endpoint ("Loket Pelayanan" YANG DIJAGA) ---
-@app.post(
-    "/tanya", 
-    response_model=QueryResponse,
-    dependencies=[Depends(get_api_key)] # <-- INI DIA PENJAGANYA!
-)
-async def tanya_bot(request: QueryRequest):
-    """
-    Endpoint utama untuk menerima pertanyaan dari klien.
-    HANYA BISA DIAKSES DENGAN X-API-Key yang valid.
-    """
-    # KODE DI BAWAH INI HANYA AKAN DIJALANKAN JIKA 'get_api_key' SUKSES
+    # 3. BUAT CHAT ENGINE (MEMORI + RAG)
+    print("[STARTUP] Menyiapkan Chat Engine...")
     
-    print(f"\n[REQUEST DITERIMA] Pertanyaan: '{request.pertanyaan}', Top K: {request.top_k}")
-    
-    retriever = global_index.as_retriever(
-        similarity_top_k=request.top_k
+    # Aturan Anti-Halusinasi
+    SYSTEM_PROMPT = (
+        "Anda adalah asisten medis AI profesional. "
+        "Jawab pertanyaan user HANYA berdasarkan konteks yang diberikan. "
+        "Jika konteks tidak memuat jawaban, katakan jujur bahwa Anda tidak tahu. "
+        "Jangan mengarang nasihat medis. Jawab dalam Bahasa Indonesia yang ramah."
     )
     
-    query_start = time.time()
-    nodes = retriever.retrieve(request.pertanyaan)
-    query_end = time.time()
+    chat_engine = index.as_chat_engine(
+        chat_mode="condense_plus_context", # Mode Pintar (Memori + RAG)
+        system_prompt=SYSTEM_PROMPT,
+        verbose=True
+    )
     
-    print(f"[RETRIEVAL] Selesai dalam {query_end - query_start:.2f} detik.")
+    print("--- [SERVER SIAP] ---")
+    return chat_engine
 
-    hasil_json = []
-    for node in nodes:
-        hasil_json.append(
-            NodeResponse(
-                skor=node.score, 
-                konten=node.get_content()
-            )
-        )
+# --- 4. INISIALISASI ---
+app = FastAPI(title="Bot CS AI (OpenAI Version)")
+
+# Load Engine Global
+# Perhatikan: ChatEngine di LlamaIndex menyimpan state/memori per sesi.
+# Untuk MVP sederhana ini, kita pakai satu engine global. 
+# (Untuk production nyata multi-user, nanti kita butuh session_id, tapi ini cukup untuk MVP).
+global_chat_engine = load_chat_engine()
+
+# --- 5. ENDPOINT ---
+@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(get_api_key)])
+async def chat_endpoint(request: QueryRequest):
+    """
+    Endpoint Chatbot Cerdas (Level 3).
+    Bisa mengingat konteks percakapan pendek.
+    """
+    # Panggil OpenAI (GPT-5-nano)
+    # Ini akan memakan waktu 1-3 detik (tergantung OpenAI), tapi RAM aman.
+    response = global_chat_engine.chat(request.pertanyaan)
     
-    return QueryResponse(hasil=hasil_json)
+    return ChatResponse(jawaban=str(response))
 
-# --- 6. Endpoint 'Health Check' (Tidak berubah) ---
 @app.get("/")
-async def root():
-    return {"message": "API Bot CS Anda 'Hidup'. Buka /docs untuk uji coba."}
+def root():
+    return {"status": "Bot AI (OpenAI) Online & Ready"}
