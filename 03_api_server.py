@@ -72,11 +72,13 @@ def load_chat_engine():
     print("[STARTUP] Menyiapkan Chat Engine...")
     
     # Aturan Anti-Halusinasi
+    # SYSTEM PROMPT BARU (HYBRID)
     SYSTEM_PROMPT = (
         "Anda adalah asisten medis AI profesional. "
-        "Jawab pertanyaan user HANYA berdasarkan konteks yang diberikan. "
-        "Jika konteks tidak memuat jawaban, katakan jujur bahwa Anda tidak tahu. "
-        "Jangan mengarang nasihat medis. Jawab dalam Bahasa Indonesia yang ramah."
+        "Tugas utama Anda adalah menjawab berdasarkan 'Konteks' database yang diberikan. "
+        "NAMUN, jika pertanyaan user tidak ditemukan di dalam konteks, "
+        "Anda BOLEH menjawab menggunakan pengetahuan medis umum Anda sebagai AI, tapi berikan PERINGATAN(DISCLAIMER) bahwa jawaban ini bersifat umum."
+        "Selalu jawab dalam Bahasa Indonesia yang ramah dan empatik."
     )
     
     chat_engine = index.as_chat_engine(
