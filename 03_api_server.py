@@ -61,24 +61,27 @@ def load_chat_engine():
     print("[STARTUP] Membuka 'Lemari Arsip' ChromaDB...")
     db = chromadb.PersistentClient(path="./chroma_db")
     try:
-        chroma_collection = db.get_collection("klien_dokter_qna")
+        # PERUBAHAN DISINI:
+        chroma_collection = db.get_collection("toko_fashion_arjun") 
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         index = VectorStoreIndex.from_vector_store(vector_store)
     except Exception as e:
-        print(f"[ERROR] Gagal load DB: {e}")
+        print(f"[ERROR] Gagal load DB Fashion: {e}")
         raise e
 
     # 3. BUAT CHAT ENGINE (MEMORI + RAG)
-    print("[STARTUP] Menyiapkan Chat Engine...")
+    print("[STARTUP] Menyiapkan Chat Engine Fashion...")
     
-    # Aturan Anti-Halusinasi
-    # SYSTEM PROMPT BARU (HYBRID)
     SYSTEM_PROMPT = (
-        "Anda adalah asisten medis AI profesional. "
-        "Tugas utama Anda adalah menjawab berdasarkan 'Konteks' database yang diberikan. "
-        "NAMUN, jika pertanyaan user tidak ditemukan di dalam konteks, "
-        "Anda BOLEH menjawab menggunakan pengetahuan medis umum Anda sebagai AI, tapi berikan PERINGATAN(DISCLAIMER) bahwa jawaban ini bersifat umum."
-        "Selalu jawab dalam Bahasa Indonesia yang ramah dan empatik."
+        "Anda adalah Customer Service AI untuk 'Arjun Fashion Store'. "
+        "Tugas Anda adalah melayani pelanggan dengan ramah dan persuasif agar mereka segera membeli. "
+        "\nATURAN PENTING:\n"
+        "1. Gunakan data 'Konteks' sebagai referensi stok dan kebijakan. "
+        "2. SAAT DITANYA STOK: Jangan sebutkan rincian angka (misal 'Total 30 pcs') kecuali user bertanya spesifik jumlahnya. "
+        "Cukup jawab 'Ada Kak' atau 'Ready Kak' dan sebutkan ukuran yang tersedia jika perlu. "
+        "3. Langsung arahkan ke pemesanan. Contoh: 'Masih ada Kak. Mau ukuran apa?' atau 'Ready Kak, mau dibungkus berapa pcs?'.\n"
+        "4. Gaya bahasa: Santai, ramah, gunakan sapaan 'Kak', dan hindari bahasa robot yang kaku.\n"
+        "5. Jika stok ukuran tertentu habis, tawarkan ukuran lain atau warna lain yang tersedia.\n"
     )
     
     chat_engine = index.as_chat_engine(
