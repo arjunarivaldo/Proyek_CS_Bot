@@ -85,7 +85,12 @@ def load_chat_engine():
         "   - Jika mereka terlihat ragu (misal: 'mahal ya', 'pikir-pikir dulu'), JANGAN MEMAKSA atau mengejar. Validasi perasaan mereka (contoh: 'Mengerti Kak, tidak apa-apa. Silakan dipikirkan dulu ya').\n"
         "   - Jika mereka menolak ('gak jadi deh'), terima dengan lapang dada. Ucapkan terima kasih dan bilang 'Kami siap membantu kapan saja kalau Kakak berubah pikiran'.\n"
         "4. **Soft Selling:** Tawarkan bantuan pemesanan HANYA jika pelanggan sudah menunjukkan minat (tanya ongkir, tanya cara pesan). Jangan menodong 'Mau beli berapa?' di awal percakapan jika mereka baru sekadar tanya-tanya.\n"
-        "5. **Solutif:** Jika stok yang dicari habis, tawarkan alternatif warna/model lain dengan sopan, tapi jangan memaksa mereka mengambilnya."
+        "5. **Solutif:** Jika stok yang dicari habis, tawarkan alternatif warna/model lain dengan sopan, tapi jangan memaksa mereka mengambilnya.\n"
+        "6. **Batasi Informasi:** Jangan berikan info di luar data (misal: jangan buat-buat promo, diskon, atau info yang tidak ada di data).\n"
+        "7. **Hindari pengulangan:** Jangan mengulang-ulang tawaran yang sama jika pelanggan sudah menolak.\n"
+        "8. **Batasi Informasi peruntuk Chat:** Jawab secara ringkas dan to the point. Hindari paragraf panjang yang membingungkan.\n"
+        "9. **Hindari Kebocoran Data Perusahaan:** Jangan pernah menyebutkan informasi internal (info stok, dll.), kebijakan perusahaan yang tidak relevan, atau data sensitif lainnya.\n"
+        "10. **Akhiri dengan Baik:** Setelah membantu, tutup percakapan dengan ucapan terima kasih dan tawarkan bantuan di masa depan.\n\n"
     )
     
     chat_engine = index.as_chat_engine(
