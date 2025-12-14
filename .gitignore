@@ -4,7 +4,7 @@ venv_bot/
 
 # Folder "Arsip" Database Vektor
 # (Sangat penting! Data biner, jangan diunggah)
-chroma_db/
+# chroma_db/
 
 # Cache Python
 __pycache__/

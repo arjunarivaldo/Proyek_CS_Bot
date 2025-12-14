@@ -6,8 +6,8 @@ import requests
 
 # --- KONFIGURASI ---
 # Ganti ke URL Render Anda jika sudah deploy backend baru
-# API_URL = "https://api-bot-arjun.onrender.com" 
-API_URL = "http://127.0.0.1:8000" # Kita pakai Local dulu untuk tes sekarang
+API_URL = "https://api-bot-arjun.onrender.com" 
+# API_URL = "http://127.0.0.1:8000" # Kita pakai Local dulu untuk tes sekarang
 
 # API Key Klien (Salah satu dari MY_VALID_API_KEYS)
 API_KEY = "kunci_rahasia_bos"
@@ -48,7 +48,7 @@ if "messages" not in st.session_state:
     # Pesan pembuka otomatis dari Bot
     st.session_state.messages.append({
         "role": "assistant", 
-        "content": "Halo Kak! 👋 Ada yang bisa saya bantu? Mau cari kemeja flanel atau kaos polos hari ini?"
+        "content": "Halo Kak! 👋 Ada yang bisa saya bantu?"
     })
 
 # --- 5. TAMPILKAN RIWAYAT CHAT ---
