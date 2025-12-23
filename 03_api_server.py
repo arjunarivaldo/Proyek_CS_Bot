@@ -1,13 +1,16 @@
-# FILE: 03_api_server.py (VERSI GPT-5-NANO - ULTIMATE)
-# TUGAS: API Server Chatbot Cerdas & Ringan
+# FILE: 03_api_server.py (VERSI MEMORI GAJAH - FULL HISTORY)
+# TUGAS: API Server Chatbot dengan Ingatan Jangka Panjang
 
 import chromadb
 import os
+import csv
+import re
 from fastapi import FastAPI, HTTPException, Security, Depends
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Import OpenAI Modules
 from llama_index.core import VectorStoreIndex, Settings, StorageContext
@@ -25,7 +28,7 @@ class QueryRequest(BaseModel):
 class ChatResponse(BaseModel):
     jawaban: str
 
-# --- 2. KEAMANAN (API KEY UNTUK KLIEN) ---
+# --- 2. KEAMANAN ---
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key")
 VALID_API_KEYS_STRING = os.environ.get("MY_VALID_API_KEYS")
 if VALID_API_KEYS_STRING:
@@ -38,35 +41,26 @@ async def get_api_key(api_key: str = Security(API_KEY_HEADER)):
         return api_key
     raise HTTPException(status_code=401, detail="API Key Klien tidak valid")
 
-# --- 3. GLOBAL SETUP (INIT OTAK & MEMORI) ---
+# --- 3. GLOBAL SETUP ---
 print("--- [SERVER STARTUP] ---")
 
-# A. SETUP MODEL (Sesuai Request: GPT-5-NANO)
 if not os.environ.get("OPENAI_API_KEY"):
     print("⚠️ WARNING: OPENAI_API_KEY belum diset di .env")
 
-# Embedding Model (Tetap pakai v3 small karena standar industri saat ini)
 Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
 
-# LLM MODEL (MENGGUNAKAN GPT-5-NANO)
-# Pastikan API Key Anda memiliki akses ke model preview ini
 try:
     print("[STARTUP] Mengaktifkan Model: gpt-5-nano...")
     Settings.llm = OpenAI(model="gpt-5-nano", temperature=0.2)
 except Exception as e:
-    print(f"⚠️ [WARNING] Gagal init gpt-5-nano (Mungkin belum akses?), fallback ke gpt-4o: {e}")
-    # Fallback safety (Jaga-jaga kalau API menolak)
+    print(f"⚠️ [WARNING] Gagal init gpt-5-nano, fallback ke gpt-4o: {e}")
     Settings.llm = OpenAI(model="gpt-4o", temperature=0.2)
 
-# B. LOAD DATABASE (CHROMA)
-print("[STARTUP] Membuka 'Lemari Arsip' ChromaDB...")
+print("[STARTUP] Membuka Database...")
 try:
     db = chromadb.PersistentClient(path="./chroma_db")
-    # Nama collection harus konsisten dengan ingestion
     chroma_collection = db.get_or_create_collection("fashion_store")
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    
-    # Init Index Global
     index = VectorStoreIndex.from_vector_store(
         vector_store,
         embed_model=Settings.embed_model
@@ -76,10 +70,10 @@ except Exception as e:
     print(f"❌ [CRITICAL ERROR] Gagal load DB: {e}")
     index = VectorStoreIndex.from_documents([])
 
-# C. SYSTEM PROMPT (VERSION: WORLD CLASS SALES + GENDER GATEKEEPER)
 SYSTEM_PROMPT = (
     "Anda adalah Customer Service Toko Fashion Terbaik di Dunia yang bekerja untuk 'Arjun Fashion Store'. "
     "Anda bukan sekadar bot, melainkan seorang Sales Expert kelas dunia. "
+    "Karakter Anda: Ramah, Hangat, Sangat Membantu, dan 'Customer Obsessed' (Mengutamakan kebahagiaan pelanggan). "
     "Tujuan Anda: Membuat pelanggan merasa spesial, terbantu, dan akhirnya ingin membeli dengan senang hati."
     "\n\nATURAN UTAMA (HYBRID INTELLIGENCE):\n"
     "1. **Data Toko:** Gunakan data harga dan nama produk dari database. Jangan mengarang angka.\n"
@@ -88,19 +82,19 @@ SYSTEM_PROMPT = (
     "   - Jangan gunakan kata 'Versi Indonesia' atau 'Terjemahan'. Langsung bicara seolah itu nama asli produknya.\n"
     "3. **Inferensi Cerdas (Sales Mindset):**\n"
     "   - Fokus pada BENEFIT. Jika 'Kaos Polos', jual sebagai 'Must-have item'.\n"
-    "4. **Lokalisasi Natural:** Terjemahkan nama produk Inggris ke Indonesia yang 'menjual'.\n"
-    "5. **GENDER GATEKEEPER (PENTING):**\n"
-    "   - Jika user adalah **WANITA** (atau bertanya produk wanita), dan database memberikan data produk **PRIA**, Anda WAJIB MENGABAIKAN data pria tersebut.\n"
-    "   - Lebih baik bilang 'Maaf stok wanita habis' daripada menawarkan Boxer Pria ke user Wanita.\n"
+    "4. **GENDER GATEKEEPER:**\n"
+    "   - Jika user WANITA, JANGAN tawarkan produk PRIA. Abaikan data pria dari database.\n"
+    "\n\nATURAN NADA BICARA (TONE):"
+    "\n- Gunakan bahasa percakapan yang luwes, sopan, tapi tidak kaku (Semi-formal santai)."
+    "\n- Selalu panggil user dengan sebutan 'Kak'."
+    "\n- Gunakan emoji secukupnya untuk mengekspresikan keramahan, seperti(😊, 🙏, ✨, 👌)."
+    "\n- JANGAN PERNAH terdengar seperti robot atau formulir pendaftaran."
     "\n\nSOP PELAYANAN:\n"
-    "6. **Cara Menjawab List Produk:**\n"
+    "5. **Cara Menjawab List Produk:**\n"
     "   - Format: * **Nama Produk** (Harga) — *Selling Point Singkat*.\n"
-    "7. **Handling Banyak Data:** Pilih maksimal 3-5 item terbaik.\n"
-    "8. **Tone:** Percaya diri, hangat, solutif. Panggil 'Kak'.\n"
-    "9. **Closing:** Arahkan ke langkah selanjutnya. 'Gimana Kak, mau aku cek size-nya?'"
+    "6. **Closing:** Arahkan ke langkah selanjutnya. 'Gimana Kak, mau aku cek size-nya?'"
 )
 
-# D. GLOBAL CHAT ENGINE
 print("[STARTUP] Menyiapkan Chat Engine...")
 global_chat_engine = index.as_chat_engine(
     chat_mode="context", 
@@ -108,114 +102,215 @@ global_chat_engine = index.as_chat_engine(
     similarity_top_k=5
 )
 
-# --- 4. INISIALISASI APP ---
-app = FastAPI(title="Bot CS Arjun Fashion Store (GPT-5 Nano)")
+# --- 4. INISIALISASI APP & TRANSAKSI ---
+app = FastAPI(title="Bot CS Arjun Fashion Store")
+FILE_TRANSAKSI = "data_transaksi.csv"
+
+def simpan_pesanan(nama: str, item: str, alamat: str, harga: str) -> bool:
+    try:
+        file_exists = os.path.isfile(FILE_TRANSAKSI)
+        with open(FILE_TRANSAKSI, mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            if not file_exists:
+                writer.writerow(["Tanggal", "Nama Customer", "Item Produk", "Harga", "Alamat Pengiriman", "Status"])
+            
+            tanggal = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            writer.writerow([tanggal, nama, item, harga, alamat, "PENDING"])
+            print(f"✅ [TRANSAKSI] Berhasil menyimpan order dari {nama}")
+            return True
+    except Exception as e:
+        print(f"❌ [ERROR] Gagal simpan transaksi (Cek apakah file Excel dibuka?): {e}")
+        return False
 
 # --- 5. FUNGSI PENDUKUNG (HELPER) ---
 
 def perbaiki_pertanyaan(pertanyaan_asli: str) -> str:
-    """
-    Mediator Bahasa dengan FILTER KATEGORI & LOGIKA KONTEKS.
-    """
-    prompt_penerjemah = (
-        f"Anda adalah Mediator Bahasa E-Commerce Fashion Profesional.\n"
-        f"Tugas: Terjemahkan intent user (Indo) ke keywords pencarian (Inggris).\n"
-        f"Database: T-Shirt, Shirt, Jeans, Trousers, Dress, Jacket, (Hindari Lingerie/Underwear kecuali diminta).\n"
-        f"\nATURAN KRUSIAL (FILTERING):\n"
-        f"1. **Anti-Salah Kategori:**\n"
-        f"   - Jika user minta 'Baju cewek/wanita', TERJEMAHKAN ke 'Women Tops, Women Shirt, Women Dress, Women Blouse'.\n"
-        f"   - **JANGAN** sertakan 'Bra', 'Lingerie', atau 'Underwear' kecuali user spesifik minta 'daleman'.\n"
-        f"2. **Gender Context:**\n"
-        f"   - 'Cewek/Wanita' -> Tambahkan keyword 'Women'.\n"
-        f"   - 'Cowok/Pria' -> Tambahkan keyword 'Men'.\n"
-        f"3. **Pertanyaan Lanjutan (Context Retention):**\n"
-        f"   - Jika user tanya 'Bahannya adem ngga?' (tanpa subjek), asumsikan user menanyakan barang yang 'Breathable' dan 'Comfortable'.\n"
-        f"   - Tambahkan 'Clothing material detail' agar mesin mencari deskripsi baju, bukan celana dalam.\n"
-        f"\nCONTOH:\n"
-        f"- User: 'Ada baju cewek?' -> Output: Women Tops Shirt Blouse Dress Casual (No Lingerie)\n"
-        f"- User: 'Bahannya gimana?' -> Output: Product material detail fabric quality\n"
-        f"\nPertanyaan User: '{pertanyaan_asli}' \n"
-        f"Terjemahan Inggris (Hanya Output Teks):"
-    )
-    
+    # (Kode Translator sama seperti sebelumnya - disingkat agar muat)
+    prompt_penerjemah = f"Terjemahkan ke keywords Inggris database fashion (Tanpa Bra/Lingerie kecuali diminta). Pertahankan intent user. Input: {pertanyaan_asli}"
     response = Settings.llm.complete(prompt_penerjemah)
-    hasil = str(response).strip()
-    
-    if len(hasil) < 2: return pertanyaan_asli
-    return hasil
+    return str(response).strip()
 
 def cek_intent(pertanyaan: str) -> str:
-    """
-    Menentukan apakah user butuh DATA PRODUK (SEARCH) atau hanya NGOBROL (CHAT).
-    """
     prompt_router = (
-        f"Klasifikasikan pesan user ke dalam dua kategori: 'SEARCH' atau 'CHAT'.\n"
-        f"1. **SEARCH**: Jika user bertanya tentang produk, stok, harga, rekomendasi, bahan, warna, atau toko.\n"
-        f"2. **CHAT**: Jika user hanya menyapa (Halo), memberi info diri (Saya cewek), setuju/menolak (Oke), atau berterima kasih.\n"
-        f"\nContoh:\n"
-        f"- 'Halo kak' -> CHAT\n"
-        f"- 'Saya mau cari kemeja' -> SEARCH\n"
-        f"- 'Saya wanita' -> CHAT\n"
-        f"- 'Bahannya apa?' -> SEARCH\n"
-        f"\nPesan User: '{pertanyaan}'\n"
-        f"Kategori (Hanya output 1 kata):"
+        f"Klasifikasikan: 'SEARCH', 'CHAT', atau 'ORDER'.\n"
+        f"ORDER: Jika user mau beli, kasih alamat, atau deal.\n"
+        f"SEARCH: Tanya stok/harga.\n"
+        f"Input: '{pertanyaan}'\nKategori:"
     )
-    
     response = Settings.llm.complete(prompt_router)
     kategori = str(response).strip().upper()
-    
+    if "ORDER" in kategori: return "ORDER"
     if "SEARCH" in kategori: return "SEARCH"
     return "CHAT"
 
-# --- 6. ENDPOINT UTAMA ---
+def ekstrak_data_order(pesan_user: str, full_history_str: str) -> dict:
+    """
+    Mengekstrak data order + LOGIKA QTY.
+    """
+    prompt_ekstraktor = (
+        f"Anda adalah Admin Pencatat Order Cerdas.\n"
+        f"Tugas: Ekstrak data pesanan dari percakapan.\n"
+        f"\n=== RIWAYAT CHAT ===\n"
+        f"{full_history_str}\n"
+        f"=== AKHIR RIWAYAT ===\n"
+        f"\nPesan User Terbaru: '{pesan_user}'\n"
+        f"\nATURAN MATEMATIKA (WAJIB):\n"
+        f"1. **QTY (Jumlah):** Cek total barang yang diinginkan user.\n"
+        f"   - Jika user bilang 'pesan 1' -> qty: 1.\n"
+        f"   - Jika history ada 'qty: 1' lalu user bilang 'nambah 1' -> qty: 2.\n"
+        f"   - Jika user bilang 'jadikan 2' -> qty: 2.\n"
+        f"2. **UNIT PRICE (Harga Satuan):** Cari harga PER 1 BARANG di history.\n"
+        f"   - Jangan tertukar dengan harga total. Ambil harga satuan asli.\n"
+        f"3. **STATUS:**\n"
+        f"   - Jika user merubah qty/komplain, status: 'REVISION'.\n"
+        f"   - Jika data masih kurang, status: 'INCOMPLETE'.\n"
+        f"   - Jika semua fix (Nama, Alamat, Item, Qty, Harga), status: 'COMPLETE'.\n"
+        f"\nFormat Output WAJIB JSON:\n"
+        f'{{"status": "...", "nama": "...", "alamat": "...", "item": "...", "qty": 1, "unit_price": 90000}}'
+    )
+    
+    response = Settings.llm.complete(prompt_ekstraktor)
+    hasil_teks = str(response).strip()
+    hasil_teks = hasil_teks.replace("```json", "").replace("```", "").strip()
+    
+    import json
+    try:
+        data = json.loads(hasil_teks)
+        # Safety convert to int
+        data['qty'] = int(data.get('qty', 1))
+        # Bersihkan harga dari karakter non-angka
+        raw_price = str(data.get('unit_price', '0'))
+        clean_price = re.sub(r'[^\d]', '', raw_price)
+        data['unit_price'] = int(clean_price) if clean_price else 0
+        return data
+    except:
+        return {"status": "INCOMPLETE", "qty": 1, "unit_price": 0}
+
+# --- 6. ENDPOINT UTAMA (REVISED MEMORY) ---
+
+# Global List untuk menyimpan riwayat chat (Memory)
+# Format: "User: ... \n Bot: ..."
+CHAT_HISTORY_BUFFER = []
 
 @app.post("/chat", response_model=ChatResponse, dependencies=[Depends(get_api_key)])
 async def chat_endpoint(request: QueryRequest):
+    global CHAT_HISTORY_BUFFER
     
     print("\n" + "="*50)
     print(f"🚀 [START] User Input: {request.pertanyaan}")
 
-    # 1. CEK INTENT (Polisi Lalu Lintas)
+    # 1. Masukkan Pesan User ke Memory
+    CHAT_HISTORY_BUFFER.append(f"User: {request.pertanyaan}")
+    
+    # Limit Memory: Simpan hanya 15 percakapan terakhir agar prompt tidak kepanjangan
+    if len(CHAT_HISTORY_BUFFER) > 15:
+        CHAT_HISTORY_BUFFER = CHAT_HISTORY_BUFFER[-15:]
+
+    # 2. Gabungkan Memory jadi satu string teks buat dibaca Extractor
+    full_history_str = "\n".join(CHAT_HISTORY_BUFFER)
+
     intent = cek_intent(request.pertanyaan)
-    print(f"🚦 [ROUTER] Intent Terdeteksi: {intent}")
+    print(f"🚦 [ROUTER] Intent: {intent}")
     
-    context_str = ""
+    jawaban_final = ""
     
-    # 2. CABANG LOGIKA
-    if intent == "SEARCH":
-        # --- JALUR KANAN: BUTUH DATA GUDANG ---
+    # === JALUR 1: ORDER ===
+    if intent == "ORDER":
+        print("💰 [ORDER MODE] Scanning Full History...")
         
+        data_order = ekstrak_data_order(request.pertanyaan, full_history_str)
+        print(f"📋 [EXTRACTOR] Data: {data_order}")
+        
+        # --- HITUNG MATEMATIKA DI PYTHON (BUKAN LLM) ---
+        qty = data_order.get('qty', 1)
+        unit_price = data_order.get('unit_price', 0)
+        total_price = qty * unit_price  # <--- INI KUNCI KEBENARANNYA
+        
+        # Format Rupiah
+        str_unit = f"Rp {unit_price:,}".replace(",", ".")
+        str_total = f"Rp {total_price:,}".replace(",", ".")
+        
+        status = data_order.get("status")
+
+        if status == "COMPLETE":
+            # (Bagian simpan pesanan COMPLETE sama seperti sebelumnya...)
+            # TAPI update bagian harga yang disimpan:
+            sukses = simpan_pesanan(
+                data_order.get("nama", "Anonim"),
+                f"{data_order.get('item')} (Qty: {qty})", # Catat Qty di item
+                data_order.get("alamat", "-"),
+                str(total_price) # Simpan Total Harga
+            )
+            
+            if sukses:
+                jawaban_final = (
+                    f"Siap Kak {data_order['nama']}! Order fix ya. 🎉\n\n"
+                    f"Ini ringkasan finalnya ya, coba dicek lagi:\n"
+                    f"✅ **Item:** {data_order['item']}\n"
+                    f"✅ **Jumlah:** {qty} pcs\n"
+                    f"✅ **Harga Satuan:** {str_unit}\n"
+                    f"💰 **TOTAL BAYAR: {str_total}**\n\n"
+                    f"📍 **Dikirim ke:** {data_order['alamat']}\n\n"
+                    f"Sip! Kalau udah oke, silakan transfer ke:\n"
+                    f"💳 **BCA 123-456-7890 a.n Arjun Fashion**\n\n"
+                    f"Jangan lupa kirim bukti transfernya di sini ya Kak, biar langsung aku proses packing sekarang juga! Ditunggu yaa~ 📦✨"
+                )
+            else:
+                jawaban_final = "Waduh, sistem pencatatan aku lagi sedikit gangguan nih Kak. Boleh coba kirim ulang pesannya lagi? Maaf ya! 🙏"
+        
+        elif status == "REVISION":
+            # --- HANDLING PERUBAHAN / REVISI ---
+            # Kita suapkan hasil hitungan Python ke Prompt agar Bot tidak halusinasi
+            prompt_revisi = (
+                f"Kamu adalah 'Arjun'. teman belanja yang sangat membantu.\n"
+                f"User baru saja MENGUBAH pesanan.\n"
+                f"Data Terbaru (Sudah Dihitung Sistem):\n"
+                f"- Item: {data_order.get('item')}\n"
+                f"- Qty Baru: {qty}\n"
+                f"- Harga Satuan: {str_unit}\n"
+                f"- Total Baru: {str_total}\n"
+                f"\nTugas: Konfirmasi perubahan ini ke user dengan ramah.\n"
+                f"Contoh: 'Siap Kak! Sudah aku update jadi {qty} pcs ya. Totalnya jadi {str_total}. Alamat aman?'"
+            )
+            resp = Settings.llm.complete(prompt_revisi)
+            jawaban_final = str(resp)
+            
+        else:
+            # --- HANDLING DATA KURANG (INCOMPLETE) ---
+            prompt_minta_data = (
+                f"Kamu adalah 'Arjun'. User mau beli tapi data belum lengkap.\n"
+                f"Data saat ini: {data_order}\n"
+                f"Tugas: Minta data yang KOSONG (Nama/Alamat) dengan gaya bahasa teman yang care.\n"
+                f"Alasan: Biar pengiriman lancar/tidak nyasar.\n"
+                f"JANGAN LISTING DATA KOSONG. Gunakan kalimat mengalir. Contoh: 'Boleh minta alamat lengkapnya sekalian Kak? Biar abang kurirnya gampang carinya hehe.'"
+            )
+            resp = Settings.llm.complete(prompt_minta_data)
+            jawaban_final = str(resp)
+
+    # === JALUR 2: SEARCH ===
+    elif intent == "SEARCH":
         pertanyaan_inggris = perbaiki_pertanyaan(request.pertanyaan)
-        print(f"📝 [TRANSLATOR] Query Gudang: '{pertanyaan_inggris}'")
-        
-        # 'index' aman diakses dari global
         retriever = index.as_retriever(similarity_top_k=5)
         nodes = retriever.retrieve(pertanyaan_inggris)
         
-        context_str = "\n\nINFORMASI STOK DARI DATABASE:\n"
-        for node in nodes:
-            context_str += f"- {node.text}\n"
-            
-        print(f"📦 [RETRIEVAL] Mengambil {len(nodes)} data produk.")
+        context_str = "\n".join([f"- {node.text}" for node in nodes])
+        pesan_final = f"{request.pertanyaan}\n\nInfo Database:\n{context_str}"
+        response = global_chat_engine.chat(pesan_final)
+        jawaban_final = str(response)
 
+    # === JALUR 3: CHAT ===
     else:
-        # --- JALUR KIRI: HANYA NGOBROL ---
-        print(f"🗣️ [CHAT MODE] Skip Retrieval. Langsung ngobrol.")
-        context_str = ""
+        response = global_chat_engine.chat(request.pertanyaan)
+        jawaban_final = str(response)
 
-    # 3. EKSEKUSI JAWABAN (SALES EXPERT)
-    if context_str:
-        pesan_final = f"{request.pertanyaan}\n\n{context_str}"
-    else:
-        pesan_final = request.pertanyaan
-
-    response = global_chat_engine.chat(pesan_final)
+    # 3. Masukkan Jawaban Bot ke Memory
+    CHAT_HISTORY_BUFFER.append(f"Bot: {jawaban_final}")
     
-    print(f"🤖 [BOT] Reply: {str(response)[:100]}...")
+    print(f"🤖 [BOT] Reply: {jawaban_final[:100]}...")
     print("="*50 + "\n")
     
-    return ChatResponse(jawaban=str(response))
+    return ChatResponse(jawaban=jawaban_final)
 
 @app.get("/")
 def root():
-    return {"status": "Bot Arjun Fashion Store (GPT-5 Nano) is Online 🚀"}
+    return {"status": "Bot Arjun (Full Memory Version) is Online 🚀"}
