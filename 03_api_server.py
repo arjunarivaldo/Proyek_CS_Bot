@@ -97,7 +97,7 @@ global_chat_engine = index.as_chat_engine(
 )
 
 # --- 4. INISIALISASI APP & TRANSAKSI ---
-app = FastAPI(title="Bot CS Arjun Fashion Store")
+app = FastAPI(title="Bot CS Gemini Fashion Store")
 FILE_TRANSAKSI = "data_transaksi.csv"
 
 def simpan_pesanan(nama: str, item: str, alamat: str, harga: str) -> bool:
@@ -256,7 +256,7 @@ async def chat_endpoint(request: QueryRequest):
             # --- HANDLING PERUBAHAN / REVISI ---
             # Kita suapkan hasil hitungan Python ke Prompt agar Bot tidak halusinasi
             prompt_revisi = (
-                f"Kamu adalah 'Arjun'. teman belanja yang sangat membantu.\n"
+                f"Kamu adalah 'Gemini'. teman belanja yang sangat membantu.\n"
                 f"User baru saja MENGUBAH pesanan.\n"
                 f"Data Terbaru (Sudah Dihitung Sistem):\n"
                 f"- Item: {data_order.get('item')}\n"
@@ -272,7 +272,7 @@ async def chat_endpoint(request: QueryRequest):
         else:
             # --- HANDLING DATA KURANG (INCOMPLETE) ---
             prompt_minta_data = (
-                f"Kamu adalah 'Arjun'. User mau beli tapi data belum lengkap.\n"
+                f"Kamu adalah 'Gemini'. User mau beli tapi data belum lengkap.\n"
                 f"Data saat ini: {data_order}\n"
                 f"Tugas: Minta data yang KOSONG (Nama/Alamat) dengan gaya bahasa teman yang care.\n"
                 f"Alasan: Biar pengiriman lancar/tidak nyasar.\n"
@@ -307,4 +307,4 @@ async def chat_endpoint(request: QueryRequest):
 
 @app.get("/")
 def root():
-    return {"status": "Bot Arjun (Full Memory Version) is Online 🚀"}
+    return {"status": "Bot Gemini (Full Memory Version) is Online 🚀"}

@@ -78,7 +78,8 @@ if prompt := st.chat_input("Ketik pesan... (Misal: Kemeja merah ukuran L ada?)")
                 f"{API_URL}/chat", 
                 json=payload, 
                 headers=headers,
-                timeout=120 
+                timeout=120,
+                verify=False
             )
             
             if response.status_code == 200:
