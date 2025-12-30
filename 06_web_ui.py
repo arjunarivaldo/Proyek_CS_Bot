@@ -14,7 +14,7 @@ API_KEY = "kunci_rahasia_bos"
 
 # --- 1. KONFIGURASI HALAMAN (TAB BROWSER) ---
 st.set_page_config(
-    page_title="Arjun Fashion Store",
+    page_title="Gemini Fashion Store",
     page_icon="🛍️",
     layout="centered"
 )
@@ -22,7 +22,7 @@ st.set_page_config(
 # --- 2. SIDEBAR (INFO TOKO) ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3159/3159066.png", width=100) # Logo Dummy
-    st.title("Arjun Fashion")
+    st.title("Gemini Fashion")
     st.markdown("""
     **Jam Operasional:**
     Senin - Sabtu: 09.00 - 20.00 WIB
@@ -35,11 +35,11 @@ with st.sidebar:
     WA: 0812-3456-7890
     """)
     st.divider()
-    st.caption("© 2025 Arjun Fashion AI System")
+    st.caption("© 2025 Gemini Fashion AI System")
 
 # --- 3. JUDUL UTAMA ---
 st.title("👋 Halo! Selamat Datang.")
-st.subheader("Asisten Virtual Arjun Fashion Store 👕")
+st.subheader("Asisten Virtual Gemini Fashion Store 👕")
 st.info("Tanyakan stok, cek harga, atau lacak pesanan Anda di sini. Saya siap membantu 24/7!")
 
 # --- 4. INISIALISASI MEMORI CHAT ---
