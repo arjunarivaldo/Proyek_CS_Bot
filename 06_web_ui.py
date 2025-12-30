@@ -6,7 +6,7 @@ import requests
 
 # --- KONFIGURASI ---
 # Ganti ke URL Render Anda jika sudah deploy backend baru
-API_URL = "https://api-bot-arjun.onrender.com" 
+API_URL = "https://gemini-cs-bot.onrender.com" 
 # API_URL = "http://127.0.0.1:8000" # Kita pakai Local dulu untuk tes sekarang
 
 # API Key Klien (Salah satu dari MY_VALID_API_KEYS)
