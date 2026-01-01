@@ -137,6 +137,33 @@ def cek_intent(pertanyaan: str) -> str:
     if "SEARCH" in kategori: return "SEARCH"
     return "CHAT"
 
+def ambil_harga_produk(nama_produk: str) -> int:
+    """
+    Ambil harga satuan produk dari ChromaDB berdasarkan nama produk.
+    Return 0 jika tidak ditemukan.
+    """
+    try:
+        retriever = index.as_retriever(similarity_top_k=1)
+        nodes = retriever.retrieve(nama_produk)
+
+        if not nodes:
+            return 0
+
+        text = nodes[0].text
+
+        # Cari pola harga: Rp 515.000 atau Rp 515000
+        import re
+        match = re.search(r'Harga Jual:\s*Rp\s*([\d\.,]+)', text)
+        if match:
+            harga_str = match.group(1).replace('.', '').replace(',', '')
+            return int(harga_str)
+
+        return 0
+    except Exception as e:
+        print(f"[ERROR] Gagal ambil harga produk: {e}")
+        return 0
+
+
 def ekstrak_data_order(pesan_user: str, full_history_str: str) -> dict:
     """
     Mengekstrak data order + LOGIKA QTY.
@@ -185,10 +212,14 @@ def ekstrak_data_order(pesan_user: str, full_history_str: str) -> dict:
 # Global List untuk menyimpan riwayat chat (Memory)
 # Format: "User: ... \n Bot: ..."
 CHAT_HISTORY_BUFFER = []
+LAST_INTENT = None
+WAITING_ORDER_DATA = False
 
 @app.post("/chat", response_model=ChatResponse, dependencies=[Depends(get_api_key)])
 async def chat_endpoint(request: QueryRequest):
     global CHAT_HISTORY_BUFFER
+    global LAST_INTENT
+    global WAITING_ORDER_DATA
     
     print("\n" + "="*50)
     print(f"🚀 [START] User Input: {request.pertanyaan}")
@@ -203,8 +234,14 @@ async def chat_endpoint(request: QueryRequest):
     # 2. Gabungkan Memory jadi satu string teks buat dibaca Extractor
     full_history_str = "\n".join(CHAT_HISTORY_BUFFER)
 
-    intent = cek_intent(request.pertanyaan)
+    # 🔁 FORCE ORDER JIKA SEDANG MENUNGGU DATA ORDER
+    if WAITING_ORDER_DATA:
+        intent = "ORDER"
+    else:
+        intent = cek_intent(request.pertanyaan)
+
     print(f"🚦 [ROUTER] Intent: {intent}")
+
     
     jawaban_final = ""
     
@@ -213,7 +250,21 @@ async def chat_endpoint(request: QueryRequest):
         print("💰 [ORDER MODE] Scanning Full History...")
         
         data_order = ekstrak_data_order(request.pertanyaan, full_history_str)
-        print(f"📋 [EXTRACTOR] Data: {data_order}")
+        print(f"📋 [EXTRACTOR] Data: {data_order}")        
+        
+        # 🔒 OVERRIDE HARGA DARI DATABASE (BUKAN LLM)
+        if data_order.get("unit_price", 0) == 0:
+            harga_db = ambil_harga_produk(data_order.get("item", ""))
+            data_order["unit_price"] = harga_db
+            
+        # ✅ FORCE STATUS COMPLETE JIKA DATA SUDAH VALID (DETERMINISTIC)
+        if (
+            data_order.get("unit_price", 0) > 0 and
+            data_order.get("nama") and
+            data_order.get("alamat")
+        ):
+            data_order["status"] = "COMPLETE"
+
         
         # --- HITUNG MATEMATIKA DI PYTHON (BUKAN LLM) ---
         qty = data_order.get('qty', 1)
@@ -227,8 +278,7 @@ async def chat_endpoint(request: QueryRequest):
         status = data_order.get("status")
 
         if status == "COMPLETE":
-            # (Bagian simpan pesanan COMPLETE sama seperti sebelumnya...)
-            # TAPI update bagian harga yang disimpan:
+            WAITING_ORDER_DATA = False
             sukses = simpan_pesanan(
                 data_order.get("nama", "Anonim"),
                 f"{data_order.get('item')} (Qty: {qty})", # Catat Qty di item
@@ -246,7 +296,7 @@ async def chat_endpoint(request: QueryRequest):
                     f"💰 **TOTAL BAYAR: {str_total}**\n\n"
                     f"📍 **Dikirim ke:** {data_order['alamat']}\n\n"
                     f"Sip! Kalau udah oke, silakan transfer ke:\n"
-                    f"💳 **BCA 123-456-7890 a.n Arjun Fashion**\n\n"
+                    f"💳 **BCA 123-456-7890 a.n Gemini Fashion**\n\n"
                     f"Jangan lupa kirim bukti transfernya di sini ya Kak, biar langsung aku proses packing sekarang juga! Ditunggu yaa~ 📦✨"
                 )
             else:
@@ -271,6 +321,7 @@ async def chat_endpoint(request: QueryRequest):
             
         else:
             # --- HANDLING DATA KURANG (INCOMPLETE) ---
+            WAITING_ORDER_DATA = True
             prompt_minta_data = (
                 f"Kamu adalah 'Gemini'. User mau beli tapi data belum lengkap.\n"
                 f"Data saat ini: {data_order}\n"
@@ -294,11 +345,23 @@ async def chat_endpoint(request: QueryRequest):
 
     # === JALUR 3: CHAT ===
     else:
-        response = global_chat_engine.chat(request.pertanyaan)
-        jawaban_final = str(response)
+    # ⚠️ PATCH: Konfirmasi singkat setelah ORDER / REVISION
+        if LAST_INTENT == "ORDER" and request.pertanyaan.strip().lower() in [
+            "aman", "ok", "oke", "siap", "iya", "ya"
+        ]:
+            prompt_konfirmasi = (
+                "User sudah mengonfirmasi data pesanan.\n"
+                "Tugas: Konfirmasi bahwa pesanan siap diproses dan minta user transfer."
+            )
+            resp = Settings.llm.complete(prompt_konfirmasi)
+            jawaban_final = str(resp)
+        else:
+            response = global_chat_engine.chat(request.pertanyaan)
+            jawaban_final = str(response)
 
     # 3. Masukkan Jawaban Bot ke Memory
     CHAT_HISTORY_BUFFER.append(f"Bot: {jawaban_final}")
+    LAST_INTENT = intent
     
     print(f"🤖 [BOT] Reply: {jawaban_final[:100]}...")
     print("="*50 + "\n")

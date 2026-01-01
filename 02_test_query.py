@@ -30,10 +30,10 @@ Settings.llm = None
 print("Menghubungkan ke 'Lemari Arsip' (ChromaDB)...")
 db = chromadb.PersistentClient(path="./chroma_db")
 try:
-    chroma_collection = db.get_collection("klien_dokter_qna")
+    chroma_collection = db.get_collection("fashion_store")
 except Exception as e:
     print("="*50)
-    print("ERROR: Collection 'klien_dokter_qna' tidak ditemukan.")
+    print("ERROR: Collection 'fashion_store' tidak ditemukan.")
     print("Pastikan Anda sudah menjalankan '01_build_index.py' (Versi OpenAI) setidaknya satu kali.")
     print("="*50)
     exit()
@@ -49,7 +49,7 @@ index_dari_storage = VectorStoreIndex.from_vector_store(
 # --- 4. BUAT "PUSTAKAWAN" (RETRIEVER) ---
 print("Menyiapkan 'Pustakawan' (Retriever)...")
 # Kita tetap pakai top_k=3 agar bisa menganalisis hasil
-retriever = index_dari_storage.as_retriever(similarity_top_k=3)
+retriever = index_dari_storage.as_retriever(similarity_top_k=3) #Mengambil 3 hasil teratas
 
 end_time = time.time()
 print(f"Setup selesai dalam {end_time - start_time:.2f} detik.")
