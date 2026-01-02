@@ -45,7 +45,7 @@ async def get_api_key(api_key: str = Security(API_KEY_HEADER)):
 print("--- [SERVER STARTUP] ---")
 
 if not os.environ.get("OPENAI_API_KEY"):
-    print("⚠️ WARNING: OPENAI_API_KEY belum diset di .env")
+    raise RuntimeError("OPENAI_API_KEY belum diset di environment")
 
 Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
 
