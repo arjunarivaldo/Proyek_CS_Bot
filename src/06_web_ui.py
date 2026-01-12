@@ -13,9 +13,9 @@ import requests
 # KONFIGURASI API
 # ==============================
 # Pakai local dulu
-API_URL = "http://127.0.0.1:8000"
+# API_URL = "http://127.0.0.1:8000"
 # Kalau sudah deploy, ganti:
-# API_URL = "https://fasha-ai.onrender.com"
+API_URL = "https://final-project-fasha-ai.onrender.com"
 
 API_KEY = "kunci_rahasia_bos"
 
