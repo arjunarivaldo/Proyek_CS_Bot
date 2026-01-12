@@ -368,6 +368,9 @@ def is_order_commitment(text: str) -> bool:
         "checkout",
         "order sekarang",
         "ambil yang ini",
+        "saya mau pesan",
+        "saya mau beli",
+        "saya mau order",
     ]
 
 
